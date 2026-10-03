@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import textwrap
 import json
+import os
 import urllib.parse
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
@@ -9,33 +10,57 @@ from PIL import Image, ImageDraw, ImageFont
 # --- ページ設定 ---
 st.set_page_config(page_title="バスケ・スタッツビンゴ", layout="centered")
 
-# --- カスタムCSSによるデザイン刷新 ---
+# --- カスタムCSSによるデザイン刷新（ダークモード対応・スマホ最適化） ---
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #fafbfc;
+    /* 全体の背景やフォントの調整（ライト/ダーク自動切り替え） */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background-color: #0e1117;
+            color: #fafbfc;
+        }
     }
+    @media (prefers-color-scheme: light) {
+        .stApp {
+            background-color: #fafbfc;
+            color: #111111;
+        }
+    }
+    
     h1, h2, h3 {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         letter-spacing: -0.5px;
     }
+    
+    /* タブの視認性向上 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #ffffff;
         border-radius: 8px 8px 0px 0px;
-        padding: 10px 20px;
+        padding: 10px 16px;
         font-weight: 600;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    
+    /* ボタンのカスタム */
     .stButton>button {
         border-radius: 8px;
         font-weight: bold;
         transition: all 0.2s ease;
+        width: 100%;
     }
-    [data-testid="stSidebar"] {
-        background-color: #f4f6f8;
+    
+    /* エクスパンダー（折りたたみ）の視認性向上 */
+    .streamlit-expanderHeader {
+        font-weight: bold;
+        border-radius: 8px;
+    }
+
+    /* スマホビューでのチェックボックス文字の視認性確保 */
+    .stCheckbox label span {
+        font-size: 15px !important;
+        font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -80,7 +105,7 @@ if 'negatives' not in st.session_state:
     st.session_state.negatives = [
         "チーム総得点 65点未満", "チームFG成功率 40%未満", "チームスリー成功率 25%未満", 
         "チームFT成功率 60%未満", "チームターンオーバー数 15回以上", "相手のスティール数が 10回以上", 
-        "相手のブロック数が 5本以上", "オフェンスリバウンド 5本未満", "チームアシスト数 10回以下", 
+        "相手のブロック数が 5回以上", "オフェンスリバウンド 5本未満", "チームアシスト数 10回以下", 
         "チーム得点が 10点未満のQがある", "前半の得点が 30点未満", "相手TOからの得点 5点未満", 
         "セカンドチャンスポイント 5点以下", "ファストブレイクポイント 5点以下", "チーム総失点 85点以上", 
         "相手のFG成功率 50%以上", "相手のスリー成功率 40%以上", "相手のスリー成功数 15本以上", 
@@ -170,7 +195,7 @@ def create_bingo_image(items, size, checked):
             if text == "FREE":
                 text_color = color_free
             elif text in st.session_state.positives or text in player_quest_texts:
-                text_color = color_positive  # 選手別お題もポジティブと同じ赤・ピンク系に
+                text_color = color_positive
             elif text in st.session_state.negatives:
                 text_color = color_negative
             else:
@@ -192,8 +217,9 @@ def create_bingo_image(items, size, checked):
                 else:
                     font_size, wrap_width, spacing = 15, 9, 3
 
+            font_path = "NotoSansJP-VariableFont_wght.ttf"
             try:
-                font = ImageFont.truetype("NotoSansJP-VariableFont_wght.ttf", font_size)
+                font = ImageFont.truetype(font_path, font_size)
                 if hasattr(font, "set_variation_by_axes"):
                     font.set_variation_by_axes([700])
             except IOError:
@@ -229,7 +255,6 @@ with tab1:
     st.title("🏀 バスケ・スタッツビンゴ")
     st.write("モードを選んでビンゴを生成し、試合中にチェックを入れて遊ぼう！")
 
-    # --- トップページでの選手別お題ON/OFF設定（一括ボタン付き） ---
     with st.expander("【ハピブー用】秋田ノーザンハピネッツ 選手別お題の有効化切り替え（クリックして展開）"):
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
@@ -361,7 +386,6 @@ with tab2:
     neg_text = st.text_area("🔴 ネガティブなお題プール（改行区切り）", value="\n".join(st.session_state.negatives), height=150)
     rare_text = st.text_area("🌟 レアなお題プール（改行区切り）", value="\n".join(st.session_state.rares), height=120)
 
-    # --- レアなお題の下に選手関連のお題編集を配置 ---
     st.markdown("---")
     st.markdown("### 👤 選手別お題の内容編集")
     st.caption("選手ごとの個別お題のテキストを直接編集できます。")
@@ -429,7 +453,7 @@ with tab3:
     - **セカンドチャンスポイント**
       - オフェンスリバウンドを奪った後、そのままゴールにねじ込んで獲得した得点のこと。ここが多いチームは泥臭く強いオフェンスができています。
     - **ペイント内得点 (インサイド得点)**
-      - ゴール下の長方形のエリア（ペイントエリア）内で決めた得点。インサイドをどれだけ支配できているかのバロメーターになります。
+      - ゴール下の長方形のエリア（ペ인트エリア）内で決めた得点。インサイドをどれだけ支配できているかのバロメーターになります。
 
     ### ⚡ 展開・個人スタッツ系
     - **ファストブレイクポイント (速攻得点)**
