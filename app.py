@@ -89,7 +89,7 @@ if 'negatives' not in st.session_state:
     st.session_state.negatives = [
         "チーム総得点 65点未満", "チームFG成功率 40%未満", "チームスリー成功率 25%未満", 
         "チームFT成功率 60%未満", "チームターンオーバー数 15回以上", "相手のスティール数が 10回以上", 
-        "相手のブロック数が 5回以上", "オフェンスリバウンド 5本未満", "チームアシスト数 10回以下", 
+        "相手のブロック数が 5本以上", "オフェンスリバウンド 5本未満", "チームアシスト数 10回以下", 
         "チーム得点が 10点未満のQがある", "前半の得点が 30点未満", "相手TOからの得点 5点未満", 
         "セカンドチャンスポイント 5点以下", "ファストブレイクポイント 5点以下", "チーム総失点 85点以上", 
         "相手のFG成功率 50%以上", "相手のスリー成功率 40%以上", "相手のスリー成功数 15本以上", 
@@ -173,6 +173,7 @@ def create_bingo_image(items, size, checked):
             x2 = (j + 1) * cell_size
             y2 = (i + 1) * cell_size
 
+            # 修正: チェックされている（True）ときだけ背景色と丸印を描画する
             if is_checked or text == "FREE":
                 draw.rectangle([x1, y1, x2, y2], fill=checked_bg_color)
 
@@ -305,27 +306,7 @@ with tab1:
         size = st.session_state.grid_size
         items = st.session_state.bingo_items
 
-        # --- ① ビンゴカード画像プレビュー ---
-        st.subheader("🖼️ ビンゴカード画像プレビュー")
-        
-        img = create_bingo_image(items, size, st.session_state.checked_states)
-        st.image(img, caption=f"生成されたビンゴカード ({size}x{size})", use_container_width=True)
-        
-        # --- 画像保存ボタン ---
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        byte_im = buf.getvalue()
-        
-        st.download_button(
-            label="📥 画像として保存 (PNG)",
-            data=byte_im,
-            file_name=f"basketball_bingo_checked_{size}x{size}.png",
-            mime="image/png"
-        )
-
-        st.markdown("---")
-
-        # --- ② 〇つけパネル ---
+        # --- 〇つけパネルを先に描画して、チェック状態（st.session_state.checked_states）を確実に更新する ---
         st.markdown("### 📝 〇つけパネル")
         st.caption("試合中に達成したお題のチェックボックスを押してください！")
 
@@ -347,7 +328,27 @@ with tab1:
 
         st.markdown("---")
 
-        # --- ③ X（Twitter）シェアボタン ＆ YouTube誘導ボタン ---
+        # --- その後にビンゴカード画像プレビューを描画（更新されたチェック状態が即座に反映される） ---
+        st.subheader("🖼️ ビンゴカード画像プレビュー")
+        
+        img = create_bingo_image(items, size, st.session_state.checked_states)
+        st.image(img, caption=f"生成されたビンゴカード ({size}x{size})", use_container_width=True)
+        
+        # --- 画像保存ボタン ---
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        byte_im = buf.getvalue()
+        
+        st.download_button(
+            label="📥 画像として保存 (PNG)",
+            data=byte_im,
+            file_name=f"basketball_bingo_checked_{size}x{size}.png",
+            mime="image/png"
+        )
+
+        st.markdown("---")
+
+        # --- X（Twitter）シェアボタン ＆ YouTube誘導ボタン ---
         has_active_players = any(v["enabled"] for v in st.session_state.player_quests.values())
         if has_active_players:
             hashtags = "#バスケビンゴ #Bリーグ #akitanh #秋田ノーザンハピネッツ"
