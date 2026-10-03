@@ -266,7 +266,7 @@ with tab1:
     grid_option = st.radio("ビンゴのサイズを選択", ["3 × 3 マス (9マス)", "5 × 5 マス (25マス)"], horizontal=True)
     selected_size = 3 if "3" in grid_option else 5
 
-    if st.button("今週のビンゴを生成！", type="primary"):
+    if st.button("ビンゴを生成！", type="primary"):
         st.session_state.grid_size = selected_size
         total_cells = selected_size * selected_size
         
