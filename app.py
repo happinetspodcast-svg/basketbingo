@@ -13,7 +13,6 @@ st.set_page_config(page_title="バスケ・スタッツビンゴ", layout="cente
 # --- カスタムCSSによるデザイン刷新（ダークモード対応・スマホ最適化） ---
 st.markdown("""
 <style>
-    /* 全体の背景やフォントの調整（ライト/ダーク自動切り替え） */
     @media (prefers-color-scheme: dark) {
         .stApp {
             background-color: #0e1117;
@@ -32,7 +31,6 @@ st.markdown("""
         letter-spacing: -0.5px;
     }
     
-    /* タブの視認性向上 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
     }
@@ -43,7 +41,6 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
-    /* ボタンのカスタム */
     .stButton>button {
         border-radius: 8px;
         font-weight: bold;
@@ -51,30 +48,17 @@ st.markdown("""
         width: 100%;
     }
     
-    /* エクスパンダー（折りたたみ）の視認性向上 */
     .streamlit-expanderHeader {
         font-weight: bold;
         border-radius: 8px;
     }
 
-    /* スマホビューでのチェックボックス文字の視認性確保 */
     .stCheckbox label span {
         font-size: 15px !important;
         font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# --- サイドバー：YouTubeチャンネルへの誘導 ---
-with st.sidebar:
-    st.markdown("### 🎙️ 関連チャンネル")
-    st.write("熱いトークをチェックしよう！")
-    st.link_button(
-        "📺 ハピネッツ・トークby秋田ブースター", 
-        "https://www.youtube.com/channel/UCJ6na2Xp35fzf4ZM2EFCLwg",
-        type="primary"
-    )
-    st.markdown("---")
 
 # --- セッションステート初期化 ---
 if 'positives' not in st.session_state:
@@ -321,6 +305,27 @@ with tab1:
         size = st.session_state.grid_size
         items = st.session_state.bingo_items
 
+        # --- ① ビンゴカード画像プレビュー ---
+        st.subheader("🖼️ ビンゴカード画像プレビュー")
+        
+        img = create_bingo_image(items, size, st.session_state.checked_states)
+        st.image(img, caption=f"生成されたビンゴカード ({size}x{size})", use_container_width=True)
+        
+        # --- 画像保存ボタン ---
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        byte_im = buf.getvalue()
+        
+        st.download_button(
+            label="📥 画像として保存 (PNG)",
+            data=byte_im,
+            file_name=f"basketball_bingo_checked_{size}x{size}.png",
+            mime="image/png"
+        )
+
+        st.markdown("---")
+
+        # --- ② 〇つけパネル ---
         st.markdown("### 📝 〇つけパネル")
         st.caption("試合中に達成したお題のチェックボックスを押してください！")
 
@@ -341,37 +346,33 @@ with tab1:
             st.success(f"🎉 おめでとうございます！ **{bingo_count} BINGO** 達成中！ 🥳")
 
         st.markdown("---")
-        st.subheader("🖼️ ビンゴカード画像プレビュー")
+
+        # --- ③ X（Twitter）シェアボタン ＆ YouTube誘導ボタン ---
+        has_active_players = any(v["enabled"] for v in st.session_state.player_quests.values())
+        if has_active_players:
+            hashtags = "#バスケビンゴ #Bリーグ #akitanh #秋田ノーザンハピネッツ"
+        else:
+            hashtags = "#バスケビンゴ #Bリーグ"
+
+        tweet_text = f"バスケ・スタッツビンゴで観戦中！現在「{bingo_count} BINGO」達成！ 🏀🔥\n{hashtags}"
+        encoded_text = urllib.parse.quote(tweet_text)
+        twitter_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
         
-        img = create_bingo_image(items, size, st.session_state.checked_states)
-        st.image(img, caption=f"生成されたビンゴカード ({size}x{size})", use_container_width=True)
-        
-        col_dl, col_share = st.columns(2)
-        
-        with col_dl:
-            buf = BytesIO()
-            img.save(buf, format="PNG")
-            byte_im = buf.getvalue()
-            
-            st.download_button(
-                label="📥 画像として保存 (PNG)",
-                data=byte_im,
-                file_name=f"basketball_bingo_checked_{size}x{size}.png",
-                mime="image/png"
-            )
-            
-        with col_share:
-            tweet_text = f"バスケ・スタッツビンゴで観戦中！現在「{bingo_count} BINGO」達成！ 🏀🔥\n#バスケスタッツビンゴ #Bリーグ #秋田ノーザンハピネッツ"
-            encoded_text = urllib.parse.quote(tweet_text)
-            twitter_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
-            
-            st.markdown(f"""
-            <a href="{twitter_url}" target="_blank" style="text-decoration: none;">
-                <div style="background-color: #000000; color: white; padding: 9px 16px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 14px; margin-top: 0px;">
-                    𝕏 で成果をシェアする
-                </div>
-            </a>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <a href="{twitter_url}" target="_blank" style="text-decoration: none;">
+            <div style="background-color: #000000; color: white; padding: 10px 16px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
+                𝕏 でシェアする
+            </div>
+        </a>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <a href="https://www.youtube.com/channel/UCJ6na2Xp35fzf4ZM2EFCLwg" target="_blank" style="text-decoration: none;">
+            <div style="background-color: #FF0000; color: white; padding: 10px 16px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 14px;">
+                📺 ハピネッツ・トークby秋田ブースター チャンネルはこちら
+            </div>
+        </a>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     active_player_count = sum(1 for v in st.session_state.player_quests.values() if v["enabled"])
@@ -453,7 +454,7 @@ with tab3:
     - **セカンドチャンスポイント**
       - オフェンスリバウンドを奪った後、そのままゴールにねじ込んで獲得した得点のこと。ここが多いチームは泥臭く強いオフェンスができています。
     - **ペイント内得点 (インサイド得点)**
-      - ゴール下の長方形のエリア（ペ인트エリア）内で決めた得点。インサイドをどれだけ支配できているかのバロメーターになります。
+      - ゴール下の長方形のエリア（ペイントエリア）内で決めた得点。インサイドをどれだけ支配できているかのバロメーターになります。
 
     ### ⚡ 展開・個人スタッツ系
     - **ファストブレイクポイント (速攻得点)**
