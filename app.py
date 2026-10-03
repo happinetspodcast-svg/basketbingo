@@ -127,8 +127,6 @@ if 'bingo_items' not in st.session_state:
     st.session_state.bingo_items = None
 if 'grid_size' not in st.session_state:
     st.session_state.grid_size = 3
-if 'checked_states' not in st.session_state:
-    st.session_state.checked_states = []
 
 # --- ビンゴ判定ロジック ---
 def check_bingo(checked, size):
@@ -173,7 +171,6 @@ def create_bingo_image(items, size, checked):
             x2 = (j + 1) * cell_size
             y2 = (i + 1) * cell_size
 
-            # 修正: チェックされている（True）ときだけ背景色と丸印を描画する
             if is_checked or text == "FREE":
                 draw.rectangle([x1, y1, x2, y2], fill=checked_bg_color)
 
@@ -298,40 +295,30 @@ with tab1:
             items = pool[:free_index] + ["FREE"] + pool[free_index:]
             
         st.session_state.bingo_items = items
-        st.session_state.checked_states = [False] * total_cells
-        if selected_size == 5:
-            st.session_state.checked_states[12] = True
+        
+        # 【修正点】新しくビンゴを生成した際に、前のチェック状態をリセットする
+        for i in range(total_cells):
+            if f"cell_{i}" in st.session_state:
+                st.session_state[f"cell_{i}"] = False
 
     if st.session_state.bingo_items:
         size = st.session_state.grid_size
         items = st.session_state.bingo_items
 
-        # --- 〇つけパネルを先に描画して、チェック状態（st.session_state.checked_states）を確実に更新する ---
-        st.markdown("### 📝 〇つけパネル")
-        st.caption("試合中に達成したお題のチェックボックスを押してください！")
+        # 【修正点】画像を描画する前に、現在のチェック状態（セッションステート）を先読みする
+        current_checked = []
+        for idx in range(len(items)):
+            if items[idx] == "FREE":
+                current_checked.append(True)
+            else:
+                # cell_{idx} のチェックボックス状態を取得（無ければFalse）
+                current_checked.append(st.session_state.get(f"cell_{idx}", False))
 
-        for i in range(size):
-            cols = st.columns(size)
-            for j in range(size):
-                idx = i * size + j
-                with cols[j]:
-                    if items[idx] == "FREE":
-                        st.checkbox("⭐ FREE", value=True, disabled=True, key=f"cell_{idx}")
-                        st.session_state.checked_states[idx] = True
-                    else:
-                        is_checked = st.checkbox(f"{items[idx]}", value=st.session_state.checked_states[idx], key=f"cell_{idx}")
-                        st.session_state.checked_states[idx] = is_checked
-
-        bingo_count = check_bingo(st.session_state.checked_states, size)
-        if bingo_count > 0:
-            st.success(f"🎉 おめでとうございます！ **{bingo_count} BINGO** 達成中！ 🥳")
-
-        st.markdown("---")
-
-        # --- その後にビンゴカード画像プレビューを描画（更新されたチェック状態が即座に反映される） ---
+        # --- ① 上部に ビンゴカード画像プレビュー を描画 ---
         st.subheader("🖼️ ビンゴカード画像プレビュー")
         
-        img = create_bingo_image(items, size, st.session_state.checked_states)
+        # 先読みした最新のチェック状態を渡して画像を生成
+        img = create_bingo_image(items, size, current_checked)
         st.image(img, caption=f"生成されたビンゴカード ({size}x{size})", use_container_width=True)
         
         # --- 画像保存ボタン ---
@@ -348,7 +335,29 @@ with tab1:
 
         st.markdown("---")
 
-        # --- X（Twitter）シェアボタン ＆ YouTube誘導ボタン ---
+        # --- ② その下に 〇つけパネル を描画 ---
+        st.markdown("### 📝 〇つけパネル")
+        st.caption("試合中に達成したお題のチェックボックスを押してください！")
+
+        for i in range(size):
+            cols = st.columns(size)
+            for j in range(size):
+                idx = i * size + j
+                with cols[j]:
+                    if items[idx] == "FREE":
+                        st.checkbox("⭐ FREE", value=True, disabled=True, key=f"cell_{idx}")
+                    else:
+                        # Streamlitはkeyを指定するだけで状態を自動保持・同期します
+                        st.checkbox(f"{items[idx]}", key=f"cell_{idx}")
+
+        # ビンゴ判定も先読みした状態リストを使って判定
+        bingo_count = check_bingo(current_checked, size)
+        if bingo_count > 0:
+            st.success(f"🎉 おめでとうございます！ **{bingo_count} BINGO** 達成中！ 🥳")
+
+        st.markdown("---")
+
+        # --- ③ X（Twitter）シェアボタン ＆ YouTube誘導ボタン ---
         has_active_players = any(v["enabled"] for v in st.session_state.player_quests.values())
         if has_active_players:
             hashtags = "#バスケビンゴ #Bリーグ #akitanh #秋田ノーザンハピネッツ"
@@ -382,7 +391,7 @@ with tab1:
 with tab2:
     st.title("✏️ ネタ（お題）の編集とバックアップ")
     
-    st.warning("⚠️ **注意**: ブラウザを閉じたりページを更新すると、編集内容はデフォルトに戻ります。お気に入りのリストを維持したい場合は、下の **「設定のエクスポート」** のコードをコピーしてメモ帳などに保存してください。")
+    st.warning("⚠️️ **注意**: ブラウザを閉じたりページを更新すると、編集内容はデフォルトに戻ります。お気に入りのリストを維持したい場合は、下の **「設定のエクスポート」** のコードをコピーしてメモ帳などに保存してください。")
     
     pos_text = st.text_area("🟢 ポジティブなお題プール（改行区切り）", value="\n".join(st.session_state.positives), height=180)
     neg_text = st.text_area("🔴 ネガティブなお題プール（改行区切り）", value="\n".join(st.session_state.negatives), height=150)
